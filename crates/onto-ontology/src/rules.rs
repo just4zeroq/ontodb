@@ -11,6 +11,21 @@
 //! - prp-inv: inverse property inference
 //! - prp-trp: transitive property closure
 //! - prp-symp: symmetric property inference
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件定义 OWL 2 RL 推理的 7 条规则和可插拔的 Rule trait，是推理内核的「规则集」。
+//! 学习目标：
+//!   1. 理解 Rule trait 的核心约定：apply(ontology, facts, new_facts) 中，
+//!      new_facts 为空表示首轮全量扫描；非空表示只从上一轮新增事实做增量扩展。
+//!      这是 semi-naive（半朴素）增量求值的关键。
+//!   2. 逐条对照 7 条规则与 W3C OWL 2 RL 的映射：
+//!      CaxSco(子类传播) / CaxEqc(等价类) / PrpSpo(子属性) / PrpEqp(等价属性)
+//!      / PrpInv(逆属性) / PrpTrp(传递) / PrpSymp(对称)。
+//!   3. 重点关注 PrpInv 的预计算反向索引、PrpTrp 的前向+后向双向扩展 ——
+//!      这些是把复杂度从 O(facts×properties) 降下来的工程优化。
+//!   4. 注意所有规则都返回 Vec<Triple>（新推导的事实），由 Reasoner 去重并
+//!      判断是否到达不动点。
+//! 关联阅读：docs/03-onto-ontology-本体推理.md 第 4.2 节。
 
 use crate::model::{Ontology, Triple};
 use std::collections::{HashMap, HashSet};

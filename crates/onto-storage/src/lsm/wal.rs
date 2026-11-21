@@ -7,6 +7,21 @@
 //!
 //! All writes are appended sequentially. On recovery, we replay the log
 //! to reconstruct the MemTable state.
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件是 LSM-Tree 的 WAL（预写日志），是 durability（持久性）的第一道关口。
+//! 学习目标：
+//!   1. 理解日志条目格式 [length:u32][crc32:u32][payload] ——
+//!      每条都带 CRC，读取时校验，损坏即停。
+//!   2. 理解 replay 的「遇错即停」策略：顺序回放时遇到第一个 CRC 不匹配或
+//!      畸形长度就停止，防止损坏的 length 字段导致级联误读；崩溃尾部半写被
+//!      CRC 检出后安全忽略。
+//!   3. 关注 append_raw_put 零克隆快路径：直接从 key/value 引用序列化，
+//!      避免为每个写构造 Entry。
+//!   4. 关注 serialize_buf 复用（避免每次写都分配）与 256MB 轮转（max_size）。
+//!   5. 理解 GroupCommitCoordinator 如何与本模块协作：leader 等 10µs 或
+//!      4 个事务即触发一次 fsync，摊薄同步开销。
+//! 关联阅读：docs/02-onto-storage-存储引擎.md 第 4.1 节。
 
 use onto_core::{CoreError, Entry, EntryKind, Result};
 use std::fs::{File, OpenOptions};

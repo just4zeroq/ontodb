@@ -4176,6 +4176,22 @@ impl LsmEngine {
     ///  Phase 1 —brief write_state: take writes, assign seqs, read old values
     ///  Phase 2 — no write_state:    index de/re mutations (independent locks)
     ///  Phase 3 —brief write_state: WAL + memtable writes
+    ///
+    ///  【中文学习导读（study 分支添加，仅注释，不改动逻辑）】
+    ///  三阶段锁提交是本项目解决死锁的关键设计，值得逐阶段精读：
+    ///    · 为什么要分三阶段？如果持有 write_state 写锁的同时再去拿索引锁，
+    ///      而另一条路径反向持锁（索引锁 → write_state），就会形成嵌套死锁。
+    ///      三阶段把「索引变更」夹在两次短暂的 write_state 持有之间，
+    ///      使 write_state 与索引锁永不同时被持有。
+    ///    · 阶段 1：短暂持有 write_state，取走事务写缓冲、分配 seq、读旧值
+    ///      （读旧值是为了阶段 2 能正确维护二级索引的新/旧键）。
+    ///    · 阶段 2：完全不持有 write_state，用各自独立的锁更新二级索引、
+    ///      向量索引、n-gram 索引。这是「写入即索引就绪」的落点。
+    ///    · 阶段 3：再次短暂持有 write_state，把写集落到 WAL 与 MemTable。
+    ///    · 注意 SST 句柄快照在拿 write_state 之前收集（锁顺序 levels→sst_cache，
+    ///      且拿到后立即释放），且只纳入仍在 levels 中的文件——被 compaction
+    ///      淘汰的缓存残留不能参与，否则会遮蔽更新鲜的数据。
+    ///  关联阅读：docs/02-onto-storage-存储引擎.md 第 4.5、4.6 节。
     pub fn commit_txn(&self, txn_id: SeqNo) -> Result<()> {
         // ── Phase 1: Take writes, assign sequence numbers, read old values ──
         // Snapshot live SST handles newest-first BEFORE acquiring write_state

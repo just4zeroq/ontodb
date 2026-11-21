@@ -10,6 +10,18 @@
 //!
 //! All modalities reference the same entity through this unified identifier.
 //! **Namespace is required** — no silent defaults, no data pollution.
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件定义了 OntoDB 的「统一语义锚点」EntityId，是整个多模态数据模型的基石。
+//! 学习目标：
+//!   1. 理解三段式身份 {namespace}::{class}::{pk} —— namespace 强制必填，
+//!      从类型层面杜绝多租户数据污染（无静默默认值）。
+//!   2. 观察「一份身份，多种用途」：同一个 EntityId 可派生出
+//!      LSM 存储键(to_lsm_key)、图顶点 ID(to_vertex_id)、类扫描前缀(class_prefix)
+//!      和命名空间扫描前缀(namespace_prefix)。这正是「零映射表」的实现基础。
+//!   3. 注意 from_str 的解析契约：必须恰好 3 段且每段非空，否则返回 None ——
+//!      这是防御性设计，避免畸形键被当作合法身份。
+//! 关联阅读：docs/00-整体架构.md 第 3 节、docs/01-onto-core-核心类型.md。
 
 use serde::{Deserialize, Serialize};
 use std::fmt;

@@ -6,6 +6,21 @@
 //! The Reasoner takes an ontology and a set of known facts (triples),
 //! applies inference rules iteratively until a fixed point is reached,
 //! and returns all inferred triples.
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件是 OWL 推理机的主引擎，实现不动点推理。这是 OntoDB 最核心的算法之一。
+//! 学习目标 —— 按 reason_inner 的执行顺序理解「快路径 + 迭代」的分层设计：
+//!   1. 快路径 1（传递闭包 BFS）：对传递属性建邻接表，从每个起点 BFS 一次性
+//!      生成闭包，绕开通用迭代。全程检查 max_facts 预算防止爆炸。
+//!   2. 快路径 2（类型传播批处理）：build_superclass_cache 预计算全类祖先表，
+//!      按 rdf:type 的 object 分组，批量产出 CaxSco/CaxEqc。
+//!   3. 迭代半朴素循环：每轮只对 PrpInv/PrpSymp/PrpSpo/PrpEqp 应用规则
+//!      （跳过已走快路径的规则），all_facts 数量不变即达不动点退出。
+//!   4. 四种推理模式对比：reason(全量) / reason_parallel(并行) /
+//!      reason_streaming(流式，内存有界可提前终止) / reason_incremental(增量)。
+//!   5. 可解释性：explain / find_premises 反查某结论由哪条规则、哪些前提推出。
+//!   6. 资源护栏：max_iterations=100、max_facts=1,000,000。
+//! 关联阅读：docs/03-onto-ontology-本体推理.md 第 4.3 节。
 
 use crate::model::{Individual, Ontology, Triple};
 use crate::rules::{default_rules, Rule, RuleId};

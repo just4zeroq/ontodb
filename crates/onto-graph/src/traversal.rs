@@ -2,6 +2,19 @@
 // Licensed under the Apache License, Version 2.0.
 // See LICENSE for details.
 //! Graph traversal engine - BFS/DFS with property filtering.
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件是图遍历门面 TraversalEngine，提供 BFS/DFS/最短路径等能力。
+//! 学习目标：
+//!   1. 理解无状态门面设计：TraversalEngine<'a> 只持有 &'a GraphStore，
+//!      所有遍历算法都是它的方法，不缓存状态，天然并发安全。
+//!   2. 关注 traverse_bfs 的三路分流优化：
+//!      有 label 且有边标签索引 → 走 O(匹配边数) 的索引路径；
+//!      有 label 无索引 → 过滤路径；无 label → 整数 BFS + 批量取顶点。
+//!   3. 注意一个性能取舍：优化后的 BFS 路径刻意不填充 edges/paths（留空），
+//!      只有 DFS 同时填充两者；traverse_bfs_with_paths 用 parent map 懒重建路径。
+//!   4. 理解最短路径 shortest_path = BFS + parent/edge 双 map，O(V) 内存。
+//! 关联阅读：docs/05-onto-graph-图引擎.md 第 4 节。
 
 use std::collections::{HashMap, HashSet, VecDeque};
 

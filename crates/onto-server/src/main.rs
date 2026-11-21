@@ -26,6 +26,23 @@
 //! - Standalone REPL (interactive or stdin)
 //! - TCP server (accepts multiple CLI connections)
 //! - HTTP server (RESTful API with auth, rate limiting, and Prometheus metrics)
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件是服务进程入口（二进制 ontodb-server），是「四协议统一门面」的组装地。
+//! 学习目标 —— 沿 main() 的启动顺序理解整个服务如何被拉起：
+//!   1. 早期分支：--security-audit 安全自检直接运行并退出（分数≥80 返回 0）。
+//!   2. 引擎打开：EngineSet::open_with_discovery 按命名空间子目录自动发现多引擎；
+//!      磁盘索引同步打开、内存索引后台重建；defer_compaction 避免启动期争抢磁盘。
+//!   3. 门面组装：OntologyStore → GraphStore(load_from_engine) → TripleStore →
+//!      QueryExecutor。所有协议最终都调用同一个 executor。
+//!   4. 并发服务：futures::select_all 同时运行 HTTP/TCP/PGWire/MySQLWire/(Raft)
+//!      + 优雅退出哨兵。设计哲学：任一服务失败即整体退出，交给 systemd/Docker
+//!      重启，不在降级态运行。
+//!   5. GuardedAllocator：拒绝 >8GiB 单次分配并打 backtrace，用于定位历史
+//!      compaction 损坏长度导致的巨型 vec 崩溃。
+//!   6. 四协议复用同一 QueryActor（label/namespace/client_ip），语义/权限/隔离
+//!      一处实现处处生效。
+//! 关联阅读：docs/07-onto-server-服务层.md 第 3、5 节，docs/00-整体架构.md 第 7.2 节。
 
 pub mod admin;
 pub mod alerts;

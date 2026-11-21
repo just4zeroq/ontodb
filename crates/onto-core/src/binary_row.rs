@@ -20,6 +20,18 @@
 //! - String: [len: u32 LE] [utf8 bytes]
 //! - Object: [len: u32 LE] [nested binary row bytes]
 //! - Array: [len: u32 LE] [element_count: u32 LE] [elements...]
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件实现「二进制行零拷贝过滤」，是 OntoDB 核心性能技术之一。
+//! 学习目标：
+//!   1. 理解格式布局：字段数 + 名称长度表 + 类型标签表 + 名称区 + 值区。
+//!      所有名称连续存放、所有值连续存放，便于顺序扫描。
+//!   2. 关注 parse() 的「单次遍历预计算」思路：解析时算好每个字段的偏移，
+//!      后续 get_* 访问不再重复解析，实现 O(1) 字段定位。
+//!   3. 关注 OnceLock<HashMap> 惰性索引：首次 find_field 才付出建表成本。
+//!   4. 理解 binary_value_eq_serde / binary_value_ord_serde 的用途 ——
+//!      它们让查询层能直接在二进制字节上做谓词比较，省去整行反序列化。
+//! 关联阅读：docs/01-onto-core-核心类型.md 第 3.1 节。
 
 use serde_json::{Map, Value};
 use std::collections::HashMap;

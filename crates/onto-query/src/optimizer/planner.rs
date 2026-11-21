@@ -4,6 +4,22 @@
 //! Query planner: converts AST to physical execution plans.
 //!
 //! Generates multiple candidate plans and selects the lowest-cost one.
+//!
+//! --- 学习导读（study 分支添加，仅注释，不改动任何逻辑）---
+//! 本文件把统一 AST（QueryAst）编译为物理执行计划树，是查询优化的核心。
+//! 学习目标：
+//!   1. 理解 PlanNode 枚举 —— 它是执行计划的「指令集」：
+//!      Scan 类(SeqScan/IndexScan/IndexLookup/VectorSearch)、
+//!      Filter/Projection、Join 类(NestedLoop/Hash/SortMerge/IndexNestedLoop)、
+//!      Sort/Aggregation/Limit/Union/WindowFunction。
+//!      每个节点带 estimated_rows，供代价模型估算。
+//!   2. 理解 plan_select 的三步：谓词下推(pushdown_predicates) →
+//!      生成多候选计划 → 用 CostModel 估算并按 cost 排序取最优。
+//!   3. 关注谓词下推细节：split_and_predicates 拆 AND；
+//!      determine_table_for_predicate 判定谓词归属表，跨表谓词保留在 join 之后。
+//!   4. 注意代价模型的服务范围：主要为 SELECT/VectorSearch/Union 生成真计划，
+//!      其他语句返回占位计划（见实现边界）。
+//! 关联阅读：docs/04-onto-query-查询引擎.md 第 3.2、4.2 节。
 
 use super::cost::{CostEstimate, CostModel, FilterSelectivity, IndexStats, TableStats};
 use crate::parser::{FilterExpr, JoinClause, JoinOn, JoinType, LiteralValue, OrderBy, QueryAst, SelectColumns, SelectItem};
